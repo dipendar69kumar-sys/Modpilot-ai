@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, Search, Home, Download, Users, Settings } from 'lucide-react'
+import { Menu, X, Search, Home, Download, Users, Zap } from 'lucide-react'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -16,7 +16,7 @@ export default function Navbar() {
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">MP</span>
             </div>
-            <span className="hidden sm:inline text-xl font-bold text-white">ModPilot</span>
+            <span className="hidden sm:inline text-xl font-bold text-white">ModPilot AI</span>
           </Link>
 
           {/* Desktop Menu */}
@@ -28,6 +28,10 @@ export default function Navbar() {
             <Link href="/mods" className="flex items-center space-x-2 text-slate-300 hover:text-white transition">
               <Download size={18} />
               <span>Mods</span>
+            </Link>
+            <Link href="/ai" className="flex items-center space-x-2 text-yellow-400 hover:text-yellow-300 transition font-semibold">
+              <Zap size={18} />
+              <span>AI Chat</span>
             </Link>
             <Link href="/community" className="flex items-center space-x-2 text-slate-300 hover:text-white transition">
               <Users size={18} />
@@ -69,6 +73,7 @@ export default function Navbar() {
           <div className="md:hidden pb-4 space-y-4 border-t border-slate-700 pt-4">
             <Link href="/" className="block text-slate-300 hover:text-white">Home</Link>
             <Link href="/mods" className="block text-slate-300 hover:text-white">Mods</Link>
+            <Link href="/ai" className="block text-yellow-400 hover:text-yellow-300 font-semibold">AI Chat</Link>
             <Link href="/community" className="block text-slate-300 hover:text-white">Community</Link>
             <div className="pt-4 space-y-2">
               <button className="w-full text-slate-300 hover:text-white py-2">Sign In</button>

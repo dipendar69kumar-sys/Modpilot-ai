@@ -27,10 +27,13 @@ export default function ModCard({ mod }: ModCardProps) {
     <div className="group bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 overflow-hidden hover:border-indigo-500/50 transition hover:shadow-xl hover:shadow-indigo-500/10">
       {/* Image */}
       <div className="relative overflow-hidden bg-slate-900 aspect-video">
-        <img
+        <Image
           src={mod.image}
           alt={mod.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          priority={false}
+          className="object-cover group-hover:scale-105 transition duration-300"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition"></div>
         

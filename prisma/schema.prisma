@@ -1,0 +1,428 @@
+// This is the Prisma schema for ModPilot
+// All database models are defined here
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// User model
+model User {
+  id                    String          @id @default(cuid())
+  email                 String          @unique
+  name                  String?
+  password              String?
+  googleId              String?         @unique
+  image                 String?
+  role                  Role            @default(USER)
+  emailVerified         DateTime?
+  status                UserStatus      @default(ACTIVE)
+  
+  // Relations
+  projects              Project[]
+  sessions              Session[]
+  aiConversations       AIConversation[]
+  publishedMods         PublishedMod[]
+  ratings               Rating[]
+  comments              Comment[]
+  apiCredentials        APICredential[]
+  auditLogs             AuditLog[]
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+// User roles
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+  OWNER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+// Session model for authentication
+model Session {
+  id                    String          @id @default(cuid())
+  userId                String
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token                 String          @unique
+  expiresAt             DateTime
+  createdAt             DateTime        @default(now())
+  
+  @@index([userId])
+  @@index([token])
+}
+
+// Project model
+model Project {
+  id                    String          @id @default(cuid())
+  ownerId               String
+  owner                 User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  name                  String
+  description           String?
+  projectType           ProjectType
+  minecraftVersion      String          // e.g., "1.21.1"
+  loader                String          // e.g., "forge", "fabric"
+  
+  status                ProjectStatus   @default(BUILDING
+  visibility            Visibility      @default(PRIVATE)
+  version               String          @default("0.1.0")
+  
+  // Build info
+  lastBuild             Build?          @relation(name: "LastBuild", fields: [lastBuildId], references: [id])
+  lastBuildId           String?
+  buildStatus           BuildStatus     @default(PENDING)
+  
+  // Relations
+  files                 ProjectFile[]
+  versions              ProjectVersion[]
+  builds                Build[]
+  publishedMod          PublishedMod?
+  aiConversations       AIConversation[]
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  archivedAt            DateTime?
+  
+  @@unique([ownerId, name])
+  @@index([ownerId])
+  @@index([status])
+  @@index([visibility])
+}
+
+enum ProjectType {
+  BUILDING
+  PLAN
+}
+
+enum ProjectStatus {
+  BUILDING
+  ARCHIVED
+  DELETED
+}
+
+enum Visibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum BuildStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+// Project files
+model ProjectFile {
+  id                    String          @id @default(cuid())
+  projectId             String
+  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  path                  String          // e.g., "src/main/java/com/example/Mod.java"
+  content               String          @db.Text
+  fileType              String          // e.g., "java", "json", "toml"
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  @@unique([projectId, path])
+  @@index([projectId])
+}
+
+// Project version/checkpoint
+model ProjectVersion {
+  id                    String          @id @default(cuid())
+  projectId             String
+  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  version               String
+  title                 String?
+  description           String?
+  filesSnapshot         Json            // Snapshot of all files at this version
+  
+  createdAt             DateTime        @default(now())
+  
+  @@index([projectId])
+}
+
+// Build model
+model Build {
+  id                    String          @id @default(cuid())
+  projectId             String
+  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  buildNumber           Int
+  status                BuildStatus     @default(QUEUED)
+  minecraftVersion      String
+  loaderVersion         String?
+  
+  // Artifact
+  artifactUrl           String?         // URL to .jar file in storage
+  artifactSize          Int?            // Size in bytes
+  
+  // Logs
+  logs                  BuildLog[]
+  startedAt             DateTime?
+  completedAt           DateTime?
+  
+  // Error info
+  errorMessage          String?
+  errorDetails          String?         @db.Text
+  
+  // For "lastBuild" reference
+  isLastBuild           Project?        @relation(name: "LastBuild")
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  @@unique([projectId, buildNumber])
+  @@index([projectId])
+  @@index([status])
+}
+
+// Build logs
+model BuildLog {
+  id                    String          @id @default(cuid())
+  buildId               String
+  build                 Build           @relation(fields: [buildId], references: [id], onDelete: Cascade)
+  
+  level                 String          // "INFO", "WARN", "ERROR"
+  message               String          @db.Text
+  timestamp             DateTime        @default(now())
+  
+  @@index([buildId])
+}
+
+// Published mod (on marketplace)
+model PublishedMod {
+  id                    String          @id @default(cuid())
+  projectId             String          @unique
+  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  authorId              String
+  author                User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  slug                  String          @unique
+  name                  String
+  description           String          @db.Text
+  
+  minecraftVersion      String
+  loader                String
+  category              String          @default("misc")
+  
+  version               String          @default("0.1.0")
+  latestBuildId         String?         // Latest successful build
+  
+  downloadCount         Int             @default(0)
+  averageRating         Float           @default(0)
+  
+  status                ModStatus       @default(PUBLISHED)
+  publishedAt           DateTime        @default(now())
+  unPublishedAt         DateTime?
+  
+  // Relations
+  versions              ModVersion[]
+  downloads             Download[]
+  ratings               Rating[]
+  comments              Comment[]
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  @@index([authorId])
+  @@index([slug])
+  @@index([status])
+}
+
+enum ModStatus {
+  PUBLISHED
+  UNPUBLISHED
+  REMOVED
+}
+
+// Mod versions
+model ModVersion {
+  id                    String          @id @default(cuid())
+  modId                 String
+  mod                   PublishedMod    @relation(fields: [modId], references: [id], onDelete: Cascade)
+  
+  version               String
+  buildId               String          // Reference to Build
+  downloadUrl           String
+  description           String?
+  
+  createdAt             DateTime        @default(now())
+  
+  @@unique([modId, version])
+  @@index([modId])
+}
+
+// Download tracking
+model Download {
+  id                    String          @id @default(cuid())
+  modId                 String
+  mod                   PublishedMod    @relation(fields: [modId], references: [id], onDelete: Cascade)
+  
+  ipAddress             String?
+  userAgent             String?
+  version               String?
+  
+  createdAt             DateTime        @default(now())
+  
+  @@index([modId])
+}
+
+// Ratings
+model Rating {
+  id                    String          @id @default(cuid())
+  modId                 String
+  mod                   PublishedMod    @relation(fields: [modId], references: [id], onDelete: Cascade)
+  
+  userId                String
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  score                 Int             // 1-5
+  
+  @@unique([modId, userId])
+  @@index([modId])
+  @@index([userId])
+}
+
+// Comments
+model Comment {
+  id                    String          @id @default(cuid())
+  modId                 String
+  mod                   PublishedMod    @relation(fields: [modId], references: [id], onDelete: Cascade)
+  
+  userId                String
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  content               String          @db.Text
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  @@index([modId])
+  @@index([userId])
+}
+
+// AI Conversation
+model AIConversation {
+  id                    String          @id @default(cuid())
+  projectId             String
+  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  userId                String
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title                 String?
+  provider              String          // "claude", "openai", "gemini", "grok"
+  
+  messages              AIMessage[]
+  changes               AIChange[]
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  @@index([projectId])
+  @@index([userId])
+}
+
+// AI Messages
+model AIMessage {
+  id                    String          @id @default(cuid())
+  conversationId        String
+  conversation          AIConversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  role                  String          // "user" or "assistant"
+  content               String          @db.Text
+  
+  createdAt             DateTime        @default(now())
+  
+  @@index([conversationId])
+}
+
+// AI Changes (proposed code modifications)
+model AIChange {
+  id                    String          @id @default(cuid())
+  conversationId        String
+  conversation          AIConversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  status                ChangeStatus    @default(PROPOSED)
+  
+  filePath              String
+  oldContent            String?         @db.Text
+  newContent            String          @db.Text
+  description           String?         @db.Text
+  
+  createdAt             DateTime        @default(now())
+  appliedAt             DateTime?
+  
+  @@index([conversationId])
+  @@index([status])
+}
+
+enum ChangeStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+}
+
+// API Credentials (for users to configure AI providers)
+model APICredential {
+  id                    String          @id @default(cuid())
+  userId                String
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  provider              String          // "openai", "claude", "gemini", "grok"
+  keyHash               String          // Hashed key for security
+  lastFour              String          // Last 4 chars of key for display
+  
+  isDefault             Boolean         @default(false)
+  isActive              Boolean         @default(true)
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+// Audit logs
+model AuditLog {
+  id                    String          @id @default(cuid())
+  userId                String?
+  user                  User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action                String          // "CREATE_PROJECT", "DELETE_PROJECT", "PUBLISH_MOD", etc.
+  resourceType          String          // "Project", "PublishedMod", "User", etc.
+  resourceId            String?
+  details               Json?
+  
+  ipAddress             String?
+  success               Boolean         @default(true)
+  
+  createdAt             DateTime        @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([resourceType])
+}

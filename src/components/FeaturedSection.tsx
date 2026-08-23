@@ -59,7 +59,7 @@ export default function FeaturedSection() {
               <Star size={24} className="text-yellow-500" />
               <h3 className="text-xl font-bold text-white">Top Rated</h3>
             </div>
-            <p className="text-slate-400 mb-4">Community's favorite mods</p>
+            <p className="text-slate-400 mb-4">Community&apos;s favorite mods</p>
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition cursor-pointer">
                 <span className="text-white font-semibold">Essential Pack</span>
